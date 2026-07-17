@@ -18,7 +18,7 @@ public class Criminal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "criminal_id")
-    private Long criminalId;
+    private Long id;
 
     @Column(name = "first_name", nullable = false, length = 50)
     private String firstName;
@@ -30,15 +30,27 @@ public class Criminal {
     @Column(nullable = false)
     private Gender gender;
 
-    @Column(nullable = false)
-    private LocalDate dob;
+    @Column(name = "dob", nullable = false)
+    private LocalDate dateOfBirth;
+
+    @Column(name = "phone_number", unique = true, length = 15)
+    private String phoneNumber;
+
+    @Column(name = "aadhaar_number", unique = true, length = 12)
+    private String aadhaarNumber;
 
     @Column(length = 500)
     private String address;
 
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 100)
+    private String state;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private CriminalStatus status;
+    @Column(name = "status", nullable = false)
+    private CriminalStatus criminalStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "risk_level" ,nullable = false)
