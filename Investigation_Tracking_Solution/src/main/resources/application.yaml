@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/crime_db
+    username: root
+    password: 1079320
+  jpa:
+    hibernate.ddl-auto: update
+    generate-ddl: true
+    show-sql: true
+  jwt:
+    secret: InvestigationTrackingSolutionSecretKeyForJWTAuthentication2026SuperSecureKey123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    expiration: 86400000

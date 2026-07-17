@@ -1,0 +1,46 @@
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# Maven target directory
+target/
+
+# Maven wrapper JAR (keep wrapper scripts)
+!.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+
+# Spring Boot
+spring.log
+
+# Temporary files
+*.tmp
+*.swp
