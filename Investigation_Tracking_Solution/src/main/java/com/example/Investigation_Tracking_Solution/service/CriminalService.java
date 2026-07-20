@@ -14,4 +14,6 @@ public interface CriminalService {
     void deleteCriminal(Long id);
     CriminalResponse getByAadhaar(String aadhaarNumber);
     List<CriminalResponse> searchByName(String name);
+    Page<CriminalResponse> getByStatus(com.example.Investigation_Tracking_Solution.model.CriminalStatus status, int page, int size);
+    Page<CriminalResponse> getByRiskLevel(com.example.Investigation_Tracking_Solution.model.RiskLevel riskLevel, int page, int size);
 }

@@ -68,4 +68,22 @@ public class CriminalController {
     public ResponseEntity<CriminalResponse> getCriminalByAadhaar(@PathVariable String aadhaar) {
         return ResponseEntity.ok(criminalService.getByAadhaar(aadhaar));
     }
+
+    @GetMapping("/status/{status}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OFFICER', 'INVESTIGATOR')")
+    public ResponseEntity<Page<CriminalResponse>> getCriminalsByStatus(
+            @PathVariable com.example.Investigation_Tracking_Solution.model.CriminalStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return ResponseEntity.ok(criminalService.getByStatus(status, page, size));
+    }
+
+    @GetMapping("/risk/{riskLevel}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OFFICER', 'INVESTIGATOR')")
+    public ResponseEntity<Page<CriminalResponse>> getCriminalsByRiskLevel(
+            @PathVariable com.example.Investigation_Tracking_Solution.model.RiskLevel riskLevel,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return ResponseEntity.ok(criminalService.getByRiskLevel(riskLevel, page, size));
+    }
 }

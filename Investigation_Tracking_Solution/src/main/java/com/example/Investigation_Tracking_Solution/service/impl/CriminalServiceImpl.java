@@ -122,4 +122,16 @@ public class CriminalServiceImpl implements CriminalService {
                 .map(CriminalMapper::toResponse)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public Page<CriminalResponse> getByStatus(com.example.Investigation_Tracking_Solution.model.CriminalStatus status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return criminalRepository.findByCriminalStatus(status, pageable).map(CriminalMapper::toResponse);
+    }
+
+    @Override
+    public Page<CriminalResponse> getByRiskLevel(com.example.Investigation_Tracking_Solution.model.RiskLevel riskLevel, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return criminalRepository.findByRiskLevel(riskLevel, pageable).map(CriminalMapper::toResponse);
+    }
 }
