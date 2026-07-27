@@ -19,16 +19,23 @@ public class InvestigationNote {
     @Column(name = "note_id")
     private Long id;
 
-    @ManyToOne
+    @Column(nullable = false, length = 100)
+    private String title;
+
+    @Column(nullable = false, length = 5000)
+    private String note;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "note_type", nullable = false)
+    private NoteType noteType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investigation_id", nullable = false)
-    private Investigation investigationId;
+    private Investigation investigation;
 
-    @ManyToOne
-    @JoinColumn(name = "author_id", nullable = false)
-    private User authorId;
-
-    @Column(name = "note_text", nullable = false, length = 2000)
-    private String noteText;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id", nullable = false)
+    private User createdBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
