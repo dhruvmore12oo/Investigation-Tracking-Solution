@@ -31,4 +31,9 @@ public interface NotificationRepo extends JpaRepository<Notification, Long> {
            "LOWER(r.firstName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(r.lastName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     Page<Notification> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT n FROM Notification n WHERE n.recipient.id = :userId AND (" +
+           "LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(n.message) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    Page<Notification> searchByRecipientAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword, Pageable pageable);
 }
