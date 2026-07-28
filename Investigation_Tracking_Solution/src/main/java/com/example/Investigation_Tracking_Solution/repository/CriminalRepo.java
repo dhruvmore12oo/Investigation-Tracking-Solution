@@ -6,6 +6,7 @@ import com.example.Investigation_Tracking_Solution.model.RiskLevel;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,4 +25,7 @@ public interface CriminalRepo extends JpaRepository<Criminal, Long> {
     Optional<Criminal> findByPhoneNumber(String phoneNumber);
 
     List<Criminal> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(String firstName, String lastName);
+
+    @Query("SELECT c.city as city, COUNT(c) as count FROM Criminal c WHERE c.city IS NOT NULL AND TRIM(c.city) <> '' GROUP BY c.city")
+    List<Object[]> findCriminalCountsByCity();
 }

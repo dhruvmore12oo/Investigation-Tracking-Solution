@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface WitnessRepo extends JpaRepository<Witness, Long> {
@@ -22,6 +23,12 @@ public interface WitnessRepo extends JpaRepository<Witness, Long> {
     Page<Witness> findByWitnessStatus(WitnessStatus witnessStatus, Pageable pageable);
 
     Page<Witness> findByReliabilityLevel(ReliabilityLevel reliabilityLevel, Pageable pageable);
+
+    @Query("SELECT COUNT(w) FROM Witness w WHERE w.witnessCase.assignedInvestigator.id = :investigatorId")
+    long countByAssignedInvestigator_Id(@Param("investigatorId") Long investigatorId);
+
+    @Query("SELECT w.witnessStatus as status, COUNT(w) as count FROM Witness w GROUP BY w.witnessStatus")
+    List<Object[]> findWitnessCountsByStatus();
 
     @Query("SELECT w FROM Witness w LEFT JOIN w.witnessCase c WHERE " +
            "LOWER(w.witnessNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
