@@ -1,7 +1,10 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.cases.CaseRequest;
 import com.example.Investigation_Tracking_Solution.dto.cases.CaseResponse;
+import com.example.Investigation_Tracking_Solution.event.CaseAssignedEvent;
+import com.example.Investigation_Tracking_Solution.event.CaseStatusChangedEvent;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.CaseMapper;
@@ -9,10 +12,12 @@ import com.example.Investigation_Tracking_Solution.model.*;
 import com.example.Investigation_Tracking_Solution.repository.*;
 import com.example.Investigation_Tracking_Solution.service.CaseService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,8 +32,11 @@ public class CaseServiceImpl implements CaseService {
     private final UserRepo userRepository;
     private final CriminalRepo criminalRepository;
     private final CaseCriminalRepo caseCriminalRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.CASE, entityType = "CASE", description = "Created new case")
     public CaseResponse createCase(CaseRequest request) {
         if (caseRepository.findByCaseNumber(request.getCaseNumber()).isPresent()) {
             throw new BadRequestException("Case number already exists.");
@@ -76,6 +84,20 @@ public class CaseServiceImpl implements CaseService {
             }
         }
 
+        Long officerUserId = (savedCase.getAssignedOfficer() != null && savedCase.getAssignedOfficer().getUser() != null)
+                ? savedCase.getAssignedOfficer().getUser().getId() : null;
+        Long investigatorUserId = (savedCase.getAssignedInvestigator() != null)
+                ? savedCase.getAssignedInvestigator().getId() : null;
+
+        if (officerUserId != null || investigatorUserId != null) {
+            eventPublisher.publishEvent(CaseAssignedEvent.builder()
+                    .caseId(savedCase.getId())
+                    .caseNumber(savedCase.getCaseNumber())
+                    .assignedOfficerUserId(officerUserId)
+                    .assignedInvestigatorUserId(investigatorUserId)
+                    .build());
+        }
+
         return CaseMapper.toResponse(savedCase, request.getCriminalIds());
     }
 
@@ -94,6 +116,8 @@ public class CaseServiceImpl implements CaseService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.CASE, entityType = "CASE", description = "Updated case details")
     public CaseResponse updateCase(Long id, CaseRequest request) {
         Case caseEntity = caseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Case With Id : " + id));
@@ -118,6 +142,8 @@ public class CaseServiceImpl implements CaseService {
                     .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Investigator With Id : " + request.getAssignedInvestigatorId()));
         }
 
+        CaseStatus oldStatus = caseEntity.getStatus();
+
         caseEntity.setCaseNumber(request.getCaseNumber());
         caseEntity.setTitle(request.getTitle());
         caseEntity.setDescription(request.getDescription());
@@ -129,8 +155,6 @@ public class CaseServiceImpl implements CaseService {
 
         Case updatedCase = caseRepository.save(caseEntity);
 
-        // Optional: updating CaseCriminals could be complex (add/remove). 
-        // For simplicity as requested, we rebuild them if provided.
         if (request.getCriminalIds() != null) {
             List<CaseCriminal> existing = caseCriminalRepository.findByCaseId(id);
             caseCriminalRepository.deleteAll(existing);
@@ -147,10 +171,28 @@ public class CaseServiceImpl implements CaseService {
             }
         }
 
+        Long officerUserId = (updatedCase.getAssignedOfficer() != null && updatedCase.getAssignedOfficer().getUser() != null)
+                ? updatedCase.getAssignedOfficer().getUser().getId() : null;
+        Long investigatorUserId = (updatedCase.getAssignedInvestigator() != null)
+                ? updatedCase.getAssignedInvestigator().getId() : null;
+
+        if (oldStatus != updatedCase.getStatus()) {
+            eventPublisher.publishEvent(CaseStatusChangedEvent.builder()
+                    .caseId(updatedCase.getId())
+                    .caseNumber(updatedCase.getCaseNumber())
+                    .oldStatus(oldStatus != null ? oldStatus.name() : "N/A")
+                    .newStatus(updatedCase.getStatus() != null ? updatedCase.getStatus().name() : "N/A")
+                    .assignedOfficerUserId(officerUserId)
+                    .assignedInvestigatorUserId(investigatorUserId)
+                    .build());
+        }
+
         return CaseMapper.toResponse(updatedCase, request.getCriminalIds() != null ? request.getCriminalIds() : getCriminalIdsForCase(id));
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.CASE, entityType = "CASE", description = "Deleted case")
     public void deleteCase(Long id) {
         Case caseEntity = caseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Case With Id : " + id));

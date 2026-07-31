@@ -1,10 +1,13 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.criminal.CriminalRequest;
 import com.example.Investigation_Tracking_Solution.dto.criminal.CriminalResponse;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.CriminalMapper;
+import com.example.Investigation_Tracking_Solution.model.AuditAction;
+import com.example.Investigation_Tracking_Solution.model.AuditModule;
 import com.example.Investigation_Tracking_Solution.model.Criminal;
 import com.example.Investigation_Tracking_Solution.repository.CriminalRepo;
 import com.example.Investigation_Tracking_Solution.service.CriminalService;
@@ -24,6 +27,7 @@ public class CriminalServiceImpl implements CriminalService {
     private final CriminalRepo criminalRepository;
 
     @Override
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.CRIMINAL, entityType = "CRIMINAL", description = "Created criminal record")
     public CriminalResponse createCriminal(CriminalRequest request) {
         if (criminalRepository.findByAadhaarNumber(request.getAadhaarNumber()).isPresent()) {
             throw new BadRequestException("Aadhaar number already exists.");
@@ -67,11 +71,11 @@ public class CriminalServiceImpl implements CriminalService {
     }
 
     @Override
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.CRIMINAL, entityType = "CRIMINAL", description = "Updated criminal record")
     public CriminalResponse updateCriminal(Long id, CriminalRequest request) {
         Criminal criminal = criminalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Criminal With Id : " + id));
 
-        // Check uniqueness if updating fields
         if (!criminal.getAadhaarNumber().equals(request.getAadhaarNumber()) &&
                 criminalRepository.findByAadhaarNumber(request.getAadhaarNumber()).isPresent()) {
             throw new BadRequestException("Aadhaar number already exists.");
@@ -100,6 +104,7 @@ public class CriminalServiceImpl implements CriminalService {
     }
 
     @Override
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.CRIMINAL, entityType = "CRIMINAL", description = "Deleted criminal record")
     public void deleteCriminal(Long id) {
         Criminal criminal = criminalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Criminal With Id : " + id));

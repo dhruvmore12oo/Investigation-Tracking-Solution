@@ -1,22 +1,23 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.officer.OfficerRequest;
 import com.example.Investigation_Tracking_Solution.dto.officer.OfficerResponse;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
+import com.example.Investigation_Tracking_Solution.mapper.OfficerMapper;
+import com.example.Investigation_Tracking_Solution.model.AuditAction;
+import com.example.Investigation_Tracking_Solution.model.AuditModule;
+import com.example.Investigation_Tracking_Solution.model.Officer;
+import com.example.Investigation_Tracking_Solution.model.User;
 import com.example.Investigation_Tracking_Solution.repository.OfficerRepo;
 import com.example.Investigation_Tracking_Solution.repository.UserRepo;
 import com.example.Investigation_Tracking_Solution.service.OfficerService;
-import com.example.Investigation_Tracking_Solution.mapper.OfficerMapper;
-import com.example.Investigation_Tracking_Solution.model.Officer;
-import com.example.Investigation_Tracking_Solution.model.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class OfficerServiceImpl implements OfficerService {
     private final UserRepo userRepository;
 
     @Override
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.OFFICER, entityType = "OFFICER", description = "Created officer")
     public OfficerResponse createOfficer(OfficerRequest request) {
 
         User user = userRepository.findById(request.getUserId())
@@ -50,7 +52,6 @@ public class OfficerServiceImpl implements OfficerService {
         Officer savedOfficer = officerRepository.save(officer);
 
         return OfficerMapper.toResponse(savedOfficer);
-
     }
 
     @Override
@@ -70,6 +71,7 @@ public class OfficerServiceImpl implements OfficerService {
     }
 
     @Override
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.OFFICER, entityType = "OFFICER", description = "Updated officer")
     public OfficerResponse updateOfficer(Long id, OfficerRequest request) {
         Officer officer = officerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Officer With Id : " + id));
@@ -84,6 +86,7 @@ public class OfficerServiceImpl implements OfficerService {
     }
 
     @Override
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.OFFICER, entityType = "OFFICER", description = "Deleted officer")
     public void deleteOfficer(Long id){
         Officer officer = officerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Officer With Id : " + id));

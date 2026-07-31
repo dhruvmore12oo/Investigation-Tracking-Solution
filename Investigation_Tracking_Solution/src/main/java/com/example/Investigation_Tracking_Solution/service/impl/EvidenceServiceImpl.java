@@ -1,7 +1,9 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.evidence.EvidenceRequest;
 import com.example.Investigation_Tracking_Solution.dto.evidence.EvidenceResponse;
+import com.example.Investigation_Tracking_Solution.event.EvidenceAddedEvent;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.EvidenceMapper;
@@ -11,6 +13,7 @@ import com.example.Investigation_Tracking_Solution.repository.InvestigationRepo;
 import com.example.Investigation_Tracking_Solution.repository.OfficerRepo;
 import com.example.Investigation_Tracking_Solution.service.EvidenceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -28,8 +32,11 @@ public class EvidenceServiceImpl implements EvidenceService {
     private final EvidenceRepo evidenceRepository;
     private final InvestigationRepo investigationRepository;
     private final OfficerRepo officerRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.EVIDENCE, entityType = "EVIDENCE", description = "Logged new evidence")
     public EvidenceResponse createEvidence(EvidenceRequest request) {
         if (evidenceRepository.findByEvidenceNumber(request.getEvidenceNumber()).isPresent()) {
             throw new BadRequestException("Evidence number already exists.");
@@ -58,6 +65,20 @@ public class EvidenceServiceImpl implements EvidenceService {
                 .build();
 
         Evidence savedEvidence = evidenceRepository.save(evidence);
+
+        Long investigatorUserId = (investigation.getAssignedInvestigator() != null) ? investigation.getAssignedInvestigator().getId() : null;
+        Long officerUserId = (officer.getUser() != null) ? officer.getUser().getId() : null;
+
+        eventPublisher.publishEvent(EvidenceAddedEvent.builder()
+                .evidenceId(savedEvidence.getId())
+                .evidenceNumber(savedEvidence.getEvidenceNumber())
+                .title(savedEvidence.getTitle())
+                .investigationId(investigation.getId())
+                .investigationNumber(investigation.getInvestigationNumber())
+                .assignedInvestigatorUserId(investigatorUserId)
+                .collectedByOfficerUserId(officerUserId)
+                .build());
+
         return EvidenceMapper.toResponse(savedEvidence);
     }
 
@@ -81,6 +102,8 @@ public class EvidenceServiceImpl implements EvidenceService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.EVIDENCE, entityType = "EVIDENCE", description = "Updated evidence details")
     public EvidenceResponse updateEvidence(Long id, EvidenceRequest request) {
         Evidence evidence = findEvidenceById(id);
         validateUpdateAuthorization(evidence);
@@ -131,6 +154,8 @@ public class EvidenceServiceImpl implements EvidenceService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.EVIDENCE, entityType = "EVIDENCE", description = "Deleted evidence")
     public void deleteEvidence(Long id) {
         Evidence evidence = findEvidenceById(id);
 

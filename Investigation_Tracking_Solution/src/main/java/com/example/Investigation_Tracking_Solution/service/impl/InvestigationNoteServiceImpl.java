@@ -1,7 +1,9 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.investigationnote.InvestigationNoteRequest;
 import com.example.Investigation_Tracking_Solution.dto.investigationnote.InvestigationNoteResponse;
+import com.example.Investigation_Tracking_Solution.event.InvestigationNoteCreatedEvent;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.InvestigationNoteMapper;
@@ -10,6 +12,7 @@ import com.example.Investigation_Tracking_Solution.repository.InvestigationNoteR
 import com.example.Investigation_Tracking_Solution.repository.InvestigationRepo;
 import com.example.Investigation_Tracking_Solution.service.InvestigationNoteService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,8 +28,11 @@ public class InvestigationNoteServiceImpl implements InvestigationNoteService {
 
     private final InvestigationNoteRepo investigationNoteRepository;
     private final InvestigationRepo investigationRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.INVESTIGATION_NOTE, entityType = "INVESTIGATION_NOTE", description = "Authored investigation note")
     public InvestigationNoteResponse createNote(InvestigationNoteRequest request) {
         User currentUser = getCurrentUser();
 
@@ -49,6 +56,18 @@ public class InvestigationNoteServiceImpl implements InvestigationNoteService {
                 .build();
 
         InvestigationNote savedNote = investigationNoteRepository.save(note);
+
+        Long investigatorUserId = (investigation.getAssignedInvestigator() != null) ? investigation.getAssignedInvestigator().getId() : null;
+
+        eventPublisher.publishEvent(InvestigationNoteCreatedEvent.builder()
+                .noteId(savedNote.getId())
+                .title(savedNote.getTitle())
+                .investigationId(investigation.getId())
+                .investigationNumber(investigation.getInvestigationNumber())
+                .assignedInvestigatorUserId(investigatorUserId)
+                .triggeredByUserId(currentUser.getId())
+                .build());
+
         return InvestigationNoteMapper.toResponse(savedNote);
     }
 
@@ -65,6 +84,8 @@ public class InvestigationNoteServiceImpl implements InvestigationNoteService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.INVESTIGATION_NOTE, entityType = "INVESTIGATION_NOTE", description = "Updated investigation note")
     public InvestigationNoteResponse updateNote(Long id, InvestigationNoteRequest request) {
         InvestigationNote note = findNoteById(id);
         User currentUser = getCurrentUser();
@@ -90,6 +111,8 @@ public class InvestigationNoteServiceImpl implements InvestigationNoteService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.INVESTIGATION_NOTE, entityType = "INVESTIGATION_NOTE", description = "Deleted investigation note")
     public void deleteNote(Long id) {
         InvestigationNote note = findNoteById(id);
         User currentUser = getCurrentUser();

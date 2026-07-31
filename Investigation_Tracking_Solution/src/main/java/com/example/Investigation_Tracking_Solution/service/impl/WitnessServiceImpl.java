@@ -1,7 +1,9 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.witness.WitnessRequest;
 import com.example.Investigation_Tracking_Solution.dto.witness.WitnessResponse;
+import com.example.Investigation_Tracking_Solution.event.WitnessAddedEvent;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.WitnessMapper;
@@ -10,6 +12,7 @@ import com.example.Investigation_Tracking_Solution.repository.CaseRepo;
 import com.example.Investigation_Tracking_Solution.repository.WitnessRepo;
 import com.example.Investigation_Tracking_Solution.service.WitnessService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -28,8 +32,11 @@ public class WitnessServiceImpl implements WitnessService {
 
     private final WitnessRepo witnessRepository;
     private final CaseRepo caseRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.WITNESS, entityType = "WITNESS", description = "Registered new witness")
     public WitnessResponse createWitness(WitnessRequest request) {
         if (witnessRepository.findByWitnessNumber(request.getWitnessNumber()).isPresent()) {
             throw new BadRequestException("Witness number already exists.");
@@ -66,6 +73,21 @@ public class WitnessServiceImpl implements WitnessService {
                 .build();
 
         Witness savedWitness = witnessRepository.save(witness);
+
+        Long investigatorUserId = (witnessCase.getAssignedInvestigator() != null) ? witnessCase.getAssignedInvestigator().getId() : null;
+        Long officerUserId = (witnessCase.getAssignedOfficer() != null && witnessCase.getAssignedOfficer().getUser() != null)
+                ? witnessCase.getAssignedOfficer().getUser().getId() : null;
+
+        eventPublisher.publishEvent(WitnessAddedEvent.builder()
+                .witnessId(savedWitness.getId())
+                .witnessNumber(savedWitness.getWitnessNumber())
+                .caseId(witnessCase.getId())
+                .caseNumber(witnessCase.getCaseNumber())
+                .assignedInvestigatorUserId(investigatorUserId)
+                .assignedOfficerUserId(officerUserId)
+                .isProtected(savedWitness.getWitnessStatus() == WitnessStatus.PROTECTED)
+                .build());
+
         return WitnessMapper.toResponse(savedWitness);
     }
 
@@ -92,6 +114,8 @@ public class WitnessServiceImpl implements WitnessService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.WITNESS, entityType = "WITNESS", description = "Updated witness details")
     public WitnessResponse updateWitness(Long id, WitnessRequest request) {
         Witness witness = findWitnessById(id);
         validateUpdateAuthorization(witness);
@@ -146,6 +170,8 @@ public class WitnessServiceImpl implements WitnessService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.WITNESS, entityType = "WITNESS", description = "Deleted witness record")
     public void deleteWitness(Long id) {
         Witness witness = findWitnessById(id);
         witnessRepository.delete(witness);

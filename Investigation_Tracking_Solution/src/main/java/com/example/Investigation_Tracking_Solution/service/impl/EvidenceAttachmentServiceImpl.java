@@ -1,5 +1,6 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.evidenceattachment.EvidenceAttachmentResponse;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
@@ -35,6 +36,7 @@ public class EvidenceAttachmentServiceImpl implements EvidenceAttachmentService 
 
     @Override
     @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.EVIDENCE, entityType = "EVIDENCE_ATTACHMENT", description = "Uploaded evidence attachment")
     public EvidenceAttachmentResponse uploadAttachment(Long evidenceId, MultipartFile file, User currentUser) {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("Uploaded file cannot be empty.");
@@ -106,6 +108,7 @@ public class EvidenceAttachmentServiceImpl implements EvidenceAttachmentService 
 
     @Override
     @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.EVIDENCE, entityType = "EVIDENCE_ATTACHMENT", description = "Deleted evidence attachment")
     public void deleteAttachment(Long attachmentId, User currentUser) {
         EvidenceAttachment attachment = evidenceAttachmentRepo.findById(attachmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find Evidence Attachment With Id : " + attachmentId));

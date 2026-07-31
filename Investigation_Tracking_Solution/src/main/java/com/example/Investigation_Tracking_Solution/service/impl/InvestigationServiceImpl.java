@@ -1,7 +1,10 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.investigation.InvestigationRequest;
 import com.example.Investigation_Tracking_Solution.dto.investigation.InvestigationResponse;
+import com.example.Investigation_Tracking_Solution.event.InvestigationAssignedEvent;
+import com.example.Investigation_Tracking_Solution.event.InvestigationStatusChangedEvent;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.InvestigationMapper;
@@ -11,6 +14,7 @@ import com.example.Investigation_Tracking_Solution.repository.InvestigationRepo;
 import com.example.Investigation_Tracking_Solution.repository.UserRepo;
 import com.example.Investigation_Tracking_Solution.service.InvestigationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +22,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -36,8 +41,11 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final InvestigationRepo investigationRepository;
     private final CaseRepo caseRepository;
     private final UserRepo userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.INVESTIGATION, entityType = "INVESTIGATION", description = "Created investigation")
     public InvestigationResponse createInvestigation(InvestigationRequest request) {
         if (investigationRepository.findByInvestigationNumber(request.getInvestigationNumber()).isPresent()) {
             throw new BadRequestException("Investigation number already exists.");
@@ -74,6 +82,15 @@ public class InvestigationServiceImpl implements InvestigationService {
         applyStatusTimestamps(investigation, request.getStatus(), request.getCompletedDate());
 
         Investigation savedInvestigation = investigationRepository.save(investigation);
+
+        if (savedInvestigation.getAssignedInvestigator() != null) {
+            eventPublisher.publishEvent(InvestigationAssignedEvent.builder()
+                    .investigationId(savedInvestigation.getId())
+                    .investigationNumber(savedInvestigation.getInvestigationNumber())
+                    .assignedInvestigatorUserId(savedInvestigation.getAssignedInvestigator().getId())
+                    .build());
+        }
+
         return InvestigationMapper.toResponse(savedInvestigation);
     }
 
@@ -97,6 +114,8 @@ public class InvestigationServiceImpl implements InvestigationService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.INVESTIGATION, entityType = "INVESTIGATION", description = "Updated investigation")
     public InvestigationResponse updateInvestigation(Long id, InvestigationRequest request) {
         Investigation investigation = findInvestigationById(id);
         validateUpdateAuthorization(investigation);
@@ -133,6 +152,8 @@ public class InvestigationServiceImpl implements InvestigationService {
         validateDates(request.getStartDate(), request.getExpectedCompletionDate(), request.getCompletedDate());
         validateCompletedStatus(request.getStatus(), request.getCompletedDate());
 
+        InvestigationStatus oldStatus = investigation.getStatus();
+
         investigation.setInvestigationNumber(request.getInvestigationNumber());
         investigation.setAssignedInvestigator(assignedInvestigator);
         investigation.setStatus(request.getStatus());
@@ -146,10 +167,23 @@ public class InvestigationServiceImpl implements InvestigationService {
         applyStatusTimestamps(investigation, request.getStatus(), request.getCompletedDate());
 
         Investigation updatedInvestigation = investigationRepository.save(investigation);
+
+        if (oldStatus != updatedInvestigation.getStatus()) {
+            eventPublisher.publishEvent(InvestigationStatusChangedEvent.builder()
+                    .investigationId(updatedInvestigation.getId())
+                    .investigationNumber(updatedInvestigation.getInvestigationNumber())
+                    .oldStatus(oldStatus != null ? oldStatus.name() : "N/A")
+                    .newStatus(updatedInvestigation.getStatus() != null ? updatedInvestigation.getStatus().name() : "N/A")
+                    .assignedInvestigatorUserId(updatedInvestigation.getAssignedInvestigator() != null ? updatedInvestigation.getAssignedInvestigator().getId() : null)
+                    .build());
+        }
+
         return InvestigationMapper.toResponse(updatedInvestigation);
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.INVESTIGATION, entityType = "INVESTIGATION", description = "Deleted investigation")
     public void deleteInvestigation(Long id) {
         Investigation investigation = findInvestigationById(id);
         investigationRepository.delete(investigation);

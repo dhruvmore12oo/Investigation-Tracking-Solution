@@ -1,10 +1,14 @@
 package com.example.Investigation_Tracking_Solution.service.impl;
 
+import com.example.Investigation_Tracking_Solution.annotation.Auditable;
 import com.example.Investigation_Tracking_Solution.dto.fir.FirRequest;
 import com.example.Investigation_Tracking_Solution.dto.fir.FirResponse;
+import com.example.Investigation_Tracking_Solution.event.FirCreatedEvent;
 import com.example.Investigation_Tracking_Solution.exception.BadRequestException;
 import com.example.Investigation_Tracking_Solution.exception.ResourceNotFoundException;
 import com.example.Investigation_Tracking_Solution.mapper.FirMapper;
+import com.example.Investigation_Tracking_Solution.model.AuditAction;
+import com.example.Investigation_Tracking_Solution.model.AuditModule;
 import com.example.Investigation_Tracking_Solution.model.Fir;
 import com.example.Investigation_Tracking_Solution.model.FirStatus;
 import com.example.Investigation_Tracking_Solution.model.Officer;
@@ -12,10 +16,12 @@ import com.example.Investigation_Tracking_Solution.repository.FirRepo;
 import com.example.Investigation_Tracking_Solution.repository.OfficerRepo;
 import com.example.Investigation_Tracking_Solution.service.FirService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -25,8 +31,11 @@ public class FirServiceImpl implements FirService {
 
     private final FirRepo firRepository;
     private final OfficerRepo officerRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.CREATE, module = AuditModule.FIR, entityType = "FIR", description = "Created FIR")
     public FirResponse createFir(FirRequest request) {
         if (firRepository.findByFirNumber(request.getFirNumber()).isPresent()) {
             throw new BadRequestException("FIR number already exists.");
@@ -47,6 +56,15 @@ public class FirServiceImpl implements FirService {
                 .build();
 
         Fir savedFir = firRepository.save(fir);
+
+        Long officerUserId = (officer.getUser() != null) ? officer.getUser().getId() : null;
+        eventPublisher.publishEvent(FirCreatedEvent.builder()
+                .firId(savedFir.getId())
+                .firNumber(savedFir.getFirNumber())
+                .title(savedFir.getTitle())
+                .assignedOfficerUserId(officerUserId)
+                .build());
+
         return FirMapper.toResponse(savedFir);
     }
 
@@ -64,6 +82,8 @@ public class FirServiceImpl implements FirService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.UPDATE, module = AuditModule.FIR, entityType = "FIR", description = "Updated FIR")
     public FirResponse updateFir(Long id, FirRequest request) {
         Fir fir = firRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find FIR With Id : " + id));
@@ -90,6 +110,8 @@ public class FirServiceImpl implements FirService {
     }
 
     @Override
+    @Transactional
+    @Auditable(action = AuditAction.DELETE, module = AuditModule.FIR, entityType = "FIR", description = "Deleted FIR")
     public void deleteFir(Long id) {
         Fir fir = firRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Could Not Find FIR With Id : " + id));
